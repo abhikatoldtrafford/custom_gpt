@@ -1,0 +1,2 @@
+openai==1.55.3
+reportlab==3.6.8

@@ -1,12 +1,72 @@
 import streamlit as st
 from openai import OpenAI 
-import json
 import os
-from pdf_generator import create_pdf
-
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import tempfile
+import json
 # Set up OpenAI API 
 api_key = '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'
 client = OpenAI(api_key=api_key)
+def create_pdf(report_data):
+    """
+    Create a PDF from the GPT-generated JSON report
+    """
+    # Create a temporary file
+    temp_pdf = tempfile.mktemp(".pdf")
+    
+    # Create PDF document
+    doc = SimpleDocTemplate(temp_pdf, pagesize=letter)
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    title_style = styles['Title']
+    heading_style = styles['Heading2']
+    normal_style = styles['Normal']
+    
+    # Build story (content)
+    story = []
+    
+    # Title
+    story.append(Paragraph("Leadership Priorities Report", title_style))
+    story.append(Spacer(1, 12))
+    
+    # Top Strategic Priorities
+    story.append(Paragraph("Top Strategic Priorities:", heading_style))
+    for priority in report_data.get('top_strategic_priorities', []):
+        story.append(Paragraph(f"• {priority['priority']}: {priority['rationale']}", normal_style))
+    story.append(Spacer(1, 12))
+    
+    # Non-Negotiables
+    story.append(Paragraph("Non-Negotiables:", heading_style))
+    for item in report_data.get('non_negotiables', []):
+        story.append(Paragraph(f"• {item}", normal_style))
+    story.append(Spacer(1, 12))
+    
+    # Observations
+    story.append(Paragraph("Observations:", heading_style))
+    observations = report_data.get('observations', {})
+    
+    # Time Allocation Misalignment
+    story.append(Paragraph("Time Allocation Misalignment:", heading_style))
+    story.append(Paragraph(observations.get('time_allocation_misalignment', 'No specific misalignment noted.'), normal_style))
+    story.append(Spacer(1, 12))
+    
+    # Recommended Adjustments
+    story.append(Paragraph("Recommended Adjustments:", heading_style))
+    for adjustment in observations.get('recommended_adjustments', []):
+        story.append(Paragraph(f"• {adjustment}", normal_style))
+    
+    story.append(Paragraph("Next Steps:", heading_style))
+    for adjustment in observations.get('next_steps', []):
+        story.append(Paragraph(f"• {adjustment}", normal_style))
+    
+    # Build PDF
+    doc.build(story)
+    
+    return temp_pdf
+
 
 def generate_leadership_report(input_data):
     system_prompt = """
