@@ -7,7 +7,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 import tempfile
 import json
 # Set up OpenAI API 
-api_key = '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'
+api_key = st.secrets["OPENAI_API_KEY"]
+#api_key = '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'
 client = OpenAI(api_key=api_key)
 def create_pdf(report_data):
     """
