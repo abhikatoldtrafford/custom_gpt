@@ -1,2 +1,4 @@
 openai==1.55.3
 reportlab
+zipfile
+io
