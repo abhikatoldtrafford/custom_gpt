@@ -1,11 +1,13 @@
 import streamlit as st
-import json
-
+import json, os
+from gpt2_backend import generate_leadership_report  # Importing the function as requested
+import io
+import zipfile
 # Function to create survey UI
 def survey_ui(title, questions, prefill_scores, tab):
     with tab:
         st.subheader(title)
-        responses = []
+        responses = {}
         for i, question in enumerate(questions):
             score = st.slider(
                 f"{i + 1}. {question}",
@@ -15,7 +17,7 @@ def survey_ui(title, questions, prefill_scores, tab):
                 step=1,
                 key=f"{title}_{i}"
             )
-            responses.append({"question": question, "score": score})
+            responses[str(i)] = {"question": question, "score": score}
         return responses
 
 def main():
@@ -45,6 +47,7 @@ def main():
         "Team members feel trusted by the CEO to take initiatives aligned with organizational goals without excessive oversight.",
         "The CEO demonstrates confidence in the leadership team by empowering them to solve problems and achieve outcomes autonomously."
     ]
+
     st.title("Trust and Delegation Effectiveness Survey")
     st.info("Rate on a scale of 0 to 10, where 0 = Strongly Disagree and 10 = Strongly Agree.")
 
@@ -52,8 +55,8 @@ def main():
     ceo_tab, team_tab = st.tabs(["CEO Survey", "Leadership Team Survey"])
 
     # Prefilled default scores
-    default_scores_ceo = [7] * 10
-    default_scores_team = [6] * 10
+    default_scores_ceo = [9] * 10
+    default_scores_team = [7] * 10
 
     # CEO Survey
     ceo_delegation_responses = survey_ui(
@@ -73,7 +76,7 @@ def main():
 
     # Submit Button
     if st.button("Generate Survey Results"):
-        output = {
+        survey_data = {
             "CEO Input": {
                 "Delegation Dynamics": ceo_delegation_responses,
                 "Trust Dynamics": ceo_trust_responses
@@ -84,21 +87,29 @@ def main():
             }
         }
 
-        # Display JSON output
-        st.subheader("Survey Results (JSON Format)")
-        st.json(output)
+        # Call the generate_leadership_report function
+        try:
+            pdf_path1, pdf_path2 = generate_leadership_report(survey_data)
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w") as zf:
+                zf.write(pdf_path1, arcname="Survey_Report.pdf")
+                zf.write(pdf_path2, arcname="Trust_Report.pdf")
+            zip_buffer.seek(0)
 
-        # Save JSON to file
-        json_filename = "survey_results.json"
-        with open(json_filename, "w") as json_file:
-            json.dump(output, json_file, indent=4)
-        st.success(f"Survey results saved as {json_filename}")
-        st.download_button(
-            label="Download Survey Results JSON",
-            data=json.dumps(output, indent=4),
-            file_name=json_filename,
-            mime="application/json"
-        )
+            # Provide download button for the ZIP file
+            st.download_button(
+                label="Download Reports (ZIP)",
+                data=zip_buffer,
+                file_name="Reports.zip",
+                mime="application/zip"
+            )
+            
+        except Exception as e:
+            st.error(f"Failed to generate reports: {e}")
 
 if __name__ == "__main__":
     main()
+
+
+
+#add first last name, phone email in ceo form

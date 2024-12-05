@@ -717,18 +717,17 @@ def generate_leadership_report(input_data):
 
     # Create PDF
     pdf_path1 = create_pdf_survey(input_data, metrics, gpt_analysis1, delegation_heatmap_file, trust_heatmap_file)
-    print(pdf_path1)
     pdf_path2 = create_pdf_trust(gpt_analysis2)
-    print(pdf_path2)
     return pdf_path1, pdf_path2
 
-# Example usage
-input_data = {
+
+if __name__ == "__main__":
+    input_data = {
     "CEO Input":{
         "Delegation Dynamics":{
             "0":{
                 "question":"Tasks delegated within the organization are communicated with clear expectations and well-defined outcomes.",
-                "score":7
+                "score":5
             },
             "1":{
                 "question":"Team members are consistently given the resources and authority they need to successfully complete delegated tasks.",
@@ -752,7 +751,7 @@ input_data = {
             },
             "6":{
                 "question":"Tasks are assigned based on the skills and expertise of the person handling them, rather than being retained unnecessarily by the CEO.",
-                "score":7
+                "score":9
             },
             "7":{
                 "question":"There is a clear process to identify which tasks should remain with the CEO and which should be delegated.",
@@ -764,7 +763,7 @@ input_data = {
             },
             "9":{
                 "question":"Delegation within the organization is viewed as an opportunity to develop leadership skills and increase team capacity.",
-                "score":7
+                "score":3
             }
         },
         "Trust Dynamics":{
@@ -897,7 +896,6 @@ input_data = {
         }
     }
 }
-
-# Generate the report
-pdf_path1, pdf_path2 = generate_leadership_report(input_data)
+    pdf_path1, pdf_path2 = generate_leadership_report(input_data)
+    print(pdf_path1, pdf_path2)
 
