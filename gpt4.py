@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+from gpt4_backend import create_pl_pdf
 
 def calculate_financials(revenue, cogs, overhead):
     """
@@ -15,33 +16,36 @@ def main():
     st.set_page_config(page_title="P&L Summary Tool", page_icon="📊")
     st.title("P&L Summary and Financial Insights Tool")
     st.markdown("""
-    ### Analyze your P&L trends over the last 3 years to identify strengths and bottlenecks.
+    ### Analyze your P&L trends to identify strengths and bottlenecks.
+    Add as many years as required to dynamically calculate financial insights.
     """)
 
     # Input Section
     st.header("Financial Inputs")
-    years = ["2020", "2021", "2022"]
 
-    # Revenue Input
-    st.subheader("Revenue")
-    revenue = [
-        st.number_input(f"Annual Revenue in M({year})", min_value=0.0, value=5.0 if year == "2020" else 6.0 if year == "2021" else 7.5, step=0.1) * 1e6
-        for year in years
-    ]
+    # Dynamic Years Input
+    years = st.text_input("Enter years separated by commas (e.g., 2020,2021,2022):", "2020,2021,2022")
+    years = [year.strip() for year in years.split(",") if year.strip()]
 
-    # COGS Input
-    st.subheader("Cost of Goods Sold (COGS %)")
-    cogs = [
-        st.slider(f"COGS Percentage ({year})", min_value=0, max_value=100, value=40 if year == "2020" else 38 if year == "2021" else 44, step=1)
-        for year in years
-    ]
+    # Create empty lists for inputs
+    revenue, cogs, overhead = [], [], []
 
-    # Overhead Costs (SG&A)
-    st.subheader("Overhead Costs (SG&A %)")
-    overhead = [
-        st.slider(f"Overhead Percentage ({year})", min_value=0, max_value=100, value=15 if year == "2020" else 16 if year == "2021" else 18, step=1)
-        for year in years
-    ]
+    # Input in columns
+    st.subheader("Input Financial Data")
+    for year in years:
+        col1, col2, col3 = st.columns(3)
+
+        # Revenue Input
+        with col1:
+            revenue.append(st.number_input(f"Revenue ($M) for {year}", min_value=0.0, value=5.0, step=0.1, key=f"revenue_{year}") * 1e6)
+
+        # COGS Input
+        with col2:
+            cogs.append(st.number_input(f"COGS (%) for {year}", min_value=0.0, max_value=100.0, value=40.0, step=0.1, key=f"cogs_{year}"))
+
+        # Overhead Input
+        with col3:
+            overhead.append(st.number_input(f"SG&A (%) for {year}", min_value=0.0, max_value=100.0, value=15.0, step=0.1, key=f"overhead_{year}"))
 
     # Calculations
     gross_profit, net_profit, break_even = calculate_financials(revenue, cogs, overhead)
@@ -61,18 +65,25 @@ def main():
     st.dataframe(df)
 
     # Download as JSON
-    output = {
+    output_json = {
         "Financial Summary": df.to_dict(orient="records")
     }
 
-    st.subheader("Download Financial Summary")
-    json_filename = "financial_summary.json"
-    st.download_button(
-        label="Download JSON",
-        data=json.dumps(output, indent=4),
-        file_name=json_filename,
-        mime="application/json"
-    )
+    # Generate Report Button
+    if st.button("Generate Results"):
+        survey_data = output_json
+        # Call the create_pdf function
+        try:
+            pdf_path = create_pl_pdf(survey_data)
+            with open(pdf_path, "rb") as pdf_file:
+                st.download_button(
+                    label="Download Report",
+                    data=pdf_file,
+                    file_name="ProfitAndLoss.pdf",
+                    mime="application/pdf"
+                )
+        except Exception as e:
+            st.error(f"Failed to generate reports: {e}")
 
 if __name__ == "__main__":
     main()

@@ -53,18 +53,49 @@ def generate_gpt_pl_analysis(input_data, metrics):
     Use GPT to generate observations, recommendations, next steps, and key trends.
     """
     system_prompt = """
-    You are a financial insights expert. Analyze the provided P&L metrics to identify key trends, observations, recommendations, and next steps. 
-    Example of Key trends:
-    1. Revenue Growth:
-   - 2020: $5M → 2022: $7.5M (+50% growth)
-    2. Cost Growth:
-    - 2020: $4M → 2022: $6.8M (+70% growth)
-    3. Profit Margin Decline:
-    - 2020: 20% → 2022: 9.3% (-53%)
-    4. Break Even Point Increase
-    - 2020: $2M → 2022: $3M (+50% increase)
+    You are a financial insights expert. Analyze the provided P&L metrics to identify key trends, observations, recommendations, and next steps. Your goal is to highlight critical financial insights that can guide decision-making.
+    
+    ** EXAMPLE **
+    {
+    "key_trends": {
+        "RevenueGrowth": [
+            "2020: $5M → 2022: $7.5M (+50% growth)",
+            "Steady year-over-year growth indicates increasing demand or effective sales strategies."
+        ],
+        "CostGrowth": [
+            "2020: $4M → 2022: $6.8M (+70% growth)",
+            "Costs are growing faster than revenue, suggesting inefficiencies or increasing input prices."
+        ],
+        "ProfitMargin": [
+            "2020: 20% → 2022: 9.3% (-53%)",
+            "Declining profitability indicates either rising costs or shrinking revenues in relation to expenses."
+        ],
+        "BreakEvenPoint": [
+            "2020: $2M → 2022: $3M (+50% increase)",
+            "The higher break-even point suggests increasing fixed costs or lower contribution margins."
+        ]
+    },
+    "observations": [
+        "Profit margins are declining, indicating that cost controls or pricing strategies need to be reviewed.",
+        "The company is becoming more reliant on high sales volume to maintain profitability.",
+        "Break-even analysis shows a higher risk threshold, requiring careful monitoring of fixed costs."
+    ],
+    "recommendations": [
+        "Focus on cost optimization strategies to reduce COGS and SG&A expenses.",
+        "Review pricing strategies to increase profit margins without reducing sales volume.",
+        "Explore automation and process efficiencies to reduce operational overhead."
+    ],
+    "next_steps": [
+        "Conduct a detailed cost analysis to identify inefficiencies and renegotiate supplier contracts.",
+        "Implement a pricing review to explore opportunities for value-based pricing.",
+        "Develop a roadmap to streamline SG&A expenses through automation and restructuring.",
+        "Set up quarterly financial reviews to monitor progress and adjust strategies dynamically."
+    ]
+}
 
-    Provide insights in JSON format as follows:
+
+
+    Output JSON format:
     {
         "key_trends": ["RevenueGrowth": ["Trend 1", "Trend 2", ...., "Trend n"],
                         "CostGrowth": ["Trend 1", "Trend 2", ...., "Trend n"],
@@ -89,10 +120,12 @@ def generate_gpt_pl_analysis(input_data, metrics):
     except:
         return None
 
-def create_pl_pdf(input_data, metrics, gpt_analysis):
+def create_pl_pdf(input_data):
     """
     Create a PDF report for P&L analysis.
     """
+    metrics = calculate_pl_metrics(input_data)
+    gpt_analysis = generate_gpt_pl_analysis(input_data, metrics)
     temp_pdf = tempfile.mktemp(".pdf")
     doc = SimpleDocTemplate(temp_pdf, pagesize=letter)
 
@@ -234,9 +267,8 @@ def create_pl_pdf(input_data, metrics, gpt_analysis):
     return temp_pdf
 
 
-# Example Usage
-input_data = {
-    "Financial Summary": [
+if __name__ == "__main__":
+    input_data = {"Financial Summary": [
         {
             "Year": "2020",
             "Revenue ($M)": 5.0,
@@ -266,11 +298,6 @@ input_data = {
         }
     ]
 }
-
-# Process data
-metrics = calculate_pl_metrics(input_data)
-gpt_analysis = generate_gpt_pl_analysis(input_data, metrics)
-
-# Generate PDF
-pdf_path = create_pl_pdf(input_data, metrics, gpt_analysis)
-print(f"PDF Report generated at: {pdf_path}")
+    # Generate PDF
+    pdf_path = create_pl_pdf(input_data)
+    print(f"PDF Report generated at: {pdf_path}")
