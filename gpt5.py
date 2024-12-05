@@ -26,13 +26,6 @@ def main():
     st.title("CEO Mandate Consolidation Tool")
 
     st.header("Upload PDFs")
-    st.info("Upload the PDFs")
-    st.markdown("""
-    - **Leadership Priority Report**
-    - **Leadership Trust Report**
-    - **Time Liberation Matrix**
-    - **Profit and Loss Insight**
-    """)
     default_paths = {
         "strategic_priorities": "files/leadership_priorities_report.pdf",
         "trust_barometer": "files/Trust_Report.pdf",
