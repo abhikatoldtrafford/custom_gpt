@@ -68,9 +68,23 @@ def main():
     # Display consolidated insights
     if st.button("Generate CEO Mandate"):
         survey_data = outputs
-        # Call the create_pdf function
-        try:
-            pdf_path = create_report(survey_data)
+        max_retries = 5
+        attempt = 0
+        success = False
+        pdf_path = None
+        
+        while attempt < max_retries and not success:
+            try:
+                attempt += 1
+                pdf_path = create_report(survey_data)
+                success = True
+            except Exception as e:
+                if attempt < max_retries:
+                    st.warning(f"Retrying...")
+                else:
+                    st.error(f"Failed to generate report after {max_retries} attempts: {e}")
+        
+        if success and pdf_path:
             with open(pdf_path, "rb") as pdf_file:
                 st.download_button(
                     label="Download Report",
@@ -78,8 +92,17 @@ def main():
                     file_name="CEOMandate.pdf",
                     mime="application/pdf"
                 )
-        except Exception as e:
-            st.error(f"Failed to generate reports: {e}")
+        # try:
+        #     pdf_path = create_report(survey_data)
+        #     with open(pdf_path, "rb") as pdf_file:
+        #         st.download_button(
+        #             label="Download Report",
+        #             data=pdf_file,
+        #             file_name="CEOMandate.pdf",
+        #             mime="application/pdf"
+        #         )
+        # except Exception as e:
+        #     st.error(f"Failed to generate reports: {e}")
     else:
         st.warning("Please upload outputs from the required PDFs to generate the CEO Mandate.")
 
