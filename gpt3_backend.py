@@ -62,8 +62,37 @@ def generate_gpt_analysis(task_matrix, observations):
     You are a task prioritization expert. 
     Based on the provided Task Prioritization Matrix and observations, create concise and actionable recommendations for a CEO. 
     Include focus areas and tasks to delegate. 
-    
-    Output in JSON format as follows:
+    EXAMPLE ouput:
+    {
+    "recommendations": [
+        "Prioritize strategic planning sessions to ensure long-term growth by allocating dedicated time free from distractions. This will help in setting clear organizational goals and aligning the team to achieve them.",
+        "Limit time spent on approving marketing campaigns, as these can be handled by the marketing manager. Delegate this task with clear guidelines and performance metrics to ensure alignment with the company's strategic objectives.",
+        "Focus on high-impact tasks such as team performance reviews to identify strengths and areas of improvement within the team, boosting overall productivity and morale.",
+        ...,
+        ...,
+        ...,
+        "Reevaluate time spent on managing key clients. Delegate operational aspects to account managers, allowing the CEO to focus on strategic client relationships."
+    ],
+    "focus_areas": [
+        "Strategic planning sessions: These are crucial for setting the organization's vision and ensuring long-term growth.",
+        "Team performance reviews: High-priority tasks to enhance team efficiency and identify opportunities for development.",
+        ...,
+        ...,
+        ...,
+        "Partnership meetings: Vital for building and maintaining strategic alliances that drive business growth."
+    ],
+    "delegate_tasks": [
+        "Approve marketing campaigns: This task can be delegated to the marketing manager with clear approval guidelines.",
+        "Follow up on pending tasks: Assign this responsibility to an administrative assistant or project coordinator to streamline operations.",
+        "Operational client management: Delegate day-to-day client interactions to account managers to free up time for strategic priorities.",
+        ...,
+        ...,
+        ...,
+        "Routine financial performance reviews: Hand over monthly or routine financial data reviews to the CFO or finance team, focusing only on key insights or anomalies."
+    ]
+    }
+
+    Output in JSON format:
     {
         "recommendations": ["Recommendation #1", "Recommendation #2", ..., "Recommendation #n"],
         "focus_areas": ["Focus Area #1", "Focus Area #2", ..., "Focus Area #n"],
@@ -87,10 +116,13 @@ def generate_gpt_analysis(task_matrix, observations):
         return None
 
 
-def create_pdf(input_data, task_matrix, gpt_analysis, observations):
+def create_pdf(input_data):
     """
     Create a PDF report from the analyzed data and GPT recommendations.
     """
+    # Process data
+    task_matrix, observations = analyze_tasks(input_data)
+    gpt_analysis = generate_gpt_analysis(task_matrix, observations)
     temp_pdf = tempfile.mktemp(".pdf")
     doc = SimpleDocTemplate(temp_pdf, pagesize=letter)
 
@@ -168,9 +200,8 @@ def create_pdf(input_data, task_matrix, gpt_analysis, observations):
     doc.build(story)
     return temp_pdf
 
-
-# Example Usage
-input_data = {
+if __name__ == "__main__":
+    input_data = {
     "Tasks": [
         {"task": "Review financial performance", "time_allocation": 20, "urgency": "High Urgency", "impact": "High Impact"},
         {"task": "Approve marketing campaigns", "time_allocation": 10, "urgency": "Medium Urgency", "impact": "Low Impact"},
@@ -186,10 +217,5 @@ input_data = {
     ]
 }
 
-# Process data
-task_matrix, observations = analyze_tasks(input_data)
-gpt_analysis = generate_gpt_analysis(task_matrix, observations)
-
-# Generate PDF
-pdf_path = create_pdf(input_data, task_matrix, gpt_analysis, observations)
-print(f"PDF Report generated at: {pdf_path}")
+    pdf_path = create_pdf(input_data)
+    print(f"PDF Report generated at: {pdf_path}")
