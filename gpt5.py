@@ -24,13 +24,9 @@ def main():
     st.set_page_config(page_title="CEO Mandate Generator", page_icon="📑")
 
     st.title("CEO Mandate Consolidation Tool")
-    st.markdown("""
-    ### Purpose:
-    Consolidate insights from multiple GPT outputs into a single, actionable CEO Mandate document.
-    """)
 
-    st.header("Upload GPT Outputs")
-    st.info("Upload the JSON outputs from the following tools:")
+    st.header("Upload PDFs")
+    st.info("Upload the PDFs")
     st.markdown("""
     - **Leadership Priority Report**
     - **Leadership Trust Report**
@@ -92,7 +88,7 @@ def main():
         except Exception as e:
             st.error(f"Failed to generate reports: {e}")
     else:
-        st.warning("Please upload outputs from the required GPT tools to generate the CEO Mandate.")
+        st.warning("Please upload outputs from the required PDFs to generate the CEO Mandate.")
 
 if __name__ == "__main__":
     main()
