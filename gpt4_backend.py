@@ -59,21 +59,29 @@ def generate_gpt_pl_analysis(input_data, metrics):
     {
     "key_trends": {
         "RevenueGrowth": [
-            "2020: $5M → 2022: $7.5M (+50% growth)",
-            "Steady year-over-year growth indicates increasing demand or effective sales strategies."
+            "2020: $5M → 2021: $6M (+20% growth)",
+            "2021: $6M → 2022: $7.5M (+25% growth)",
+            "2020: $5M → 2022: $7.5M (+50% growth overall)",
+            "Steady year-over-year growth suggests increasing demand and effective sales strategies, particularly in 2021-2022 where growth accelerated."
         ],
         "CostGrowth": [
-            "2020: $4M → 2022: $6.8M (+70% growth)",
-            "Costs are growing faster than revenue, suggesting inefficiencies or increasing input prices."
+            "2020: $4M → 2021: $4.5M (+12.5% growth)",
+            "2021: $4.5M → 2022: $6.8M (+51.1% growth)",
+            "2020: $4M → 2022: $6.8M (+70% growth overall)",
+            "Costs grew significantly between 2021 and 2022, indicating inefficiencies or rising input prices that need closer review."
         ],
         "ProfitMargin": [
-            "2020: 20% → 2022: 9.3% (-53%)",
-            "Declining profitability indicates either rising costs or shrinking revenues in relation to expenses."
+            "2020: 20% → 2021: 15% (-25%)",
+            "2021: 15% → 2022: 9.3% (-38%)",
+            "2020: 20% → 2022: 9.3% (-53% overall)",
+            "Profit margin has been steadily declining, with a sharper drop in 2021-2022 due to increasing overhead and COGS."
         ],
         "BreakEvenPoint": [
-            "2020: $2M → 2022: $3M (+50% increase)",
-            "The higher break-even point suggests increasing fixed costs or lower contribution margins."
-        ]
+            "2020: $2M → 2021: $2.5M (+25% increase)",
+            "2021: $2.5M → 2022: $3M (+20% increase)",
+            "2020: $2M → 2022: $3M (+50% increase overall)",
+            "The higher break-even point year-over-year suggests rising fixed costs and lower contribution margins, highlighting the need for cost control measures."
+        ]}
     },
     "observations": [
         "Profit margins are declining, indicating that cost controls or pricing strategies need to be reviewed.",
