@@ -27,10 +27,7 @@ def main():
             for task in prefilled_tasks
         ]
 
-    # Layout: Task List and Task Priority Details
-    st.header("Task Management")
-    st.info("List your tasks, set priorities, and allocate time to strategic goals.")
-
+    
     # Task List Input
     st.subheader("Task List")
     st.info("List up to 15 tasks you handle daily or weekly in your role.")
