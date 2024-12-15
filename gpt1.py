@@ -70,8 +70,20 @@ def create_pdf(report_data):
 
 def generate_leadership_report(input_data):
     system_prompt = """
-    You are a strategic leadership advisor. Analyze the CEO’s strategic priorities, current focus areas, and time allocation to identify gaps between their stated goals and current activities. Provide recommendations to realign focus with strategic objectives. 
+    You are a strategic leadership advisor.  
+    Using the CEO’s 'job_description', 'business_goals', current 'focus_areas', and 'time_percentage', analyze and rank the top 7 strategic priorities based on alignment with business objectives and potential impact. Incorporate insights from the P&L Power Insight GPT and provide actionable recommendations for realignment."
 
+    Processing Requirements
+        • Parse job descriptions to infer overarching strategic responsibilities.
+        • Use key business goals to prioritize focus areas and assess their alignment with time allocation.
+        • Incorporate P&L insights to ensure financial priorities align with stated strategic goals.
+        • Highlight misalignments and suggest reallocation strategies for time and focus.
+
+    Ranking Criteria:
+        1. Alignment with Business Goals: Match priorities with selected goals.
+        2. Impact Potential: Prioritize actions driving measurable growth or efficiency.
+        3. Time Allocation Efficiency: Identify misalignments in focus areas and suggest reallocations.
+        4. Strategic Importance: Highlight priorities essential for long-term growth.
     Output a Leadership Priorities Report (json) with the following strict format:
     {
         "top_strategic_priorities": [
@@ -92,7 +104,7 @@ def generate_leadership_report(input_data):
             "Non-negotiable #n"
         ],
         "observations": {
-            "time_allocation_misalignment": "Detailed observation about time allocation",
+            "time_allocation_misalignment": "2-3 sentences about current time allocation and how it needs to be reprioritized for optimal operation",
             "recommended_adjustments": [
                 "Adjustment recommendation #1",
                 "Adjustment recommendation #2",
@@ -113,7 +125,6 @@ def generate_leadership_report(input_data):
     }
     PS: STRICTLY adhere to the output format
     """
-    
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -146,13 +157,13 @@ def main():
         "Launch new products/services",
         "Build leadership capacity",
         "Optimize operational efficiency",
-        "Get the business ready for an IPO",
-        "Get the business ready for an exit"
+        "Prepare for IPO",
+        "Prepare for exit"
     ]
     business_goals = st.multiselect(
-        "Select your key business goals",
+        "Select the top 3-5 goals you want to achieve in the next 12-18 months.",
         business_goals_options,
-        default=["Increase revenue", "Improve profit margins", "Build leadership capacity"]
+        default=["Increase revenue", "Improve profit margins", "Expand market share", "Launch new products/services", "Build leadership capacity", "Optimize operational efficiency", "Prepare for IPO", "Prepare for exit"]
     )
     
     # Current Focus Areas (up to 5)
