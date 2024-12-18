@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+import time
 
 # API Base URL
 API_BASE_URL = "https://copilot-updated.azurewebsites.net/" 
@@ -38,11 +39,24 @@ def upload_file(file):
             response = requests.post(f"{API_BASE_URL}/upload-file", files=files, data=data)
         if response.status_code == 200:
             st.session_state["uploaded_files"].append(file.name)
-            st.success("File uploaded successfully!")
+            st.success(f"File '{file.name}' uploaded successfully!")
         else:
             st.error("Failed to upload file. Check server logs.")
     else:
         st.error("Please create an assistant first.")
+
+# Callback function for file upload
+def handle_file_upload():
+    uploaded_file = st.session_state.uploaded_file
+    if uploaded_file and uploaded_file.name not in st.session_state["uploaded_files"]:
+        progress_bar = st.sidebar.progress(0)
+        with st.sidebar:
+            for percent_complete in range(100):
+                time.sleep(0.02)  # Simulate upload time
+                progress_bar.progress(percent_complete + 1)
+        upload_file(uploaded_file)
+        progress_bar.empty()
+        
 
 # Function to handle conversation with streaming
 def send_message_streaming(prompt):
@@ -71,7 +85,7 @@ def send_message_streaming(prompt):
         st.error("Please create an assistant first.")
 
 # Streamlit App Layout
-st.title("🛠️ Product Management AI Chatbot")
+st.title("🛠️ Product Management Bot")
 
 # Sidebar for Assistant Creation and File Upload
 with st.sidebar:
@@ -79,10 +93,15 @@ with st.sidebar:
     if st.button("🔄 Create Assistant"):
         initiate_chat()
     
-    uploaded_file = st.file_uploader("📁 Upload a file to assist your chat", type=["txt", "pdf", "docx"])
-    if uploaded_file is not None:
-        upload_file(uploaded_file)
-
+    # File uploader with on_change callback
+    uploaded_file = st.file_uploader(
+        "📁 Upload a file to assist your chat", 
+        type=["txt", "pdf", "docx"], 
+        key="uploaded_file",
+        on_change=handle_file_upload
+    )
+    
+    # Display Uploaded Files
     if st.session_state["uploaded_files"]:
         st.subheader("📂 Uploaded Files")
         for file in st.session_state["uploaded_files"]:
