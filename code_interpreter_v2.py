@@ -33,12 +33,13 @@ def upload_files_and_create_assistant(files):
             data = response.json()
             st.session_state["assistant_id"] = data["assistant_id"]
             st.session_state["thread_id"] = data["thread_id"]
-            st.session_state["uploaded_files"] = [file.name for file in files]
+            st.session_state["uploaded_files"] = files  # Store file objects, not just names
             st.success("Files uploaded and assistant created successfully!")
         else:
             st.error(f"Failed to upload files and create assistant. Error: {response.text}")
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
+
 
 # Function to send a message and get a response
 def send_message(user_input):
