@@ -1,7 +1,7 @@
 import os
 import time
 import streamlit as st
-from openai import OpenAI
+from openai import AzureOpenAI
 
 # --------------------------------------------------------------------------
 # 1. Setup
