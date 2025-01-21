@@ -14,7 +14,7 @@ def create_client():
         api_version=st.secrets['AZURE_API_VERSION'],
     )
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = create_client()
 
 # Temporary directory to store downloaded files
 TEMP_DIR = "temp_files"
