@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
-import time
+import base64
+from io import BytesIO
+from PIL import Image
 
 # API Base URL
 API_BASE_URL = "https://copilot-updated.azurewebsites.net/"  # Replace with your actual API URL
@@ -33,13 +35,12 @@ def upload_files_and_create_assistant(files):
             data = response.json()
             st.session_state["assistant_id"] = data["assistant_id"]
             st.session_state["thread_id"] = data["thread_id"]
-            st.session_state["uploaded_files"] = files  # Store file objects, not just names
+            st.session_state["uploaded_files"] = files  # Store file objects
             st.success("Files uploaded and assistant created successfully!")
         else:
             st.error(f"Failed to upload files and create assistant. Error: {response.text}")
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
-
 
 # Function to send a message and get a response
 def send_message(user_input):
@@ -52,7 +53,6 @@ def send_message(user_input):
         # Call the /data-analysis endpoint with the user's input
         response = requests.post(
             f"{API_BASE_URL}/data-analysis",
-            files=[("files", file) for file in st.session_state["uploaded_files"]],
             data={
                 "user_input": user_input,
                 "assistant_id": st.session_state["assistant_id"],
@@ -71,9 +71,16 @@ def send_message(user_input):
                         st.markdown(item["content"])
                     st.session_state["chat_history"].append({"role": "assistant", "content": item["content"]})
                 elif item["type"] == "image":
+                    # Decode the base64 image
+                    image_data = base64.b64decode(item["content"])
+                    image = Image.open(BytesIO(image_data))
+                    
+                    # Display the image
                     with st.chat_message("assistant"):
-                        st.image(item["content"], caption="Generated Image", use_column_width=True)
-                    st.session_state["chat_history"].append({"role": "assistant", "content": f"![Generated Image]({item['content']})"})
+                        st.image(image, caption="Generated Image", use_column_width=True)
+                    
+                    # Store the image in chat history
+                    st.session_state["chat_history"].append({"role": "assistant", "content": f"![Generated Image](data:image/png;base64,{item['content']})"})
         else:
             st.error(f"Failed to get a response. Error: {response.text}")
     except Exception as e:
@@ -102,7 +109,7 @@ with st.sidebar:
     if st.session_state["uploaded_files"]:
         st.subheader("📂 Uploaded Files")
         for file in st.session_state["uploaded_files"]:
-            st.markdown(f"- {file}")
+            st.markdown(f"- {file.name}")  # Use file.name to get the file name
 
 # Chat Interface
 st.subheader("💬 Chat with the Assistant")
