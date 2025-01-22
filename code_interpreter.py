@@ -62,7 +62,7 @@ def display_response(response):
         elif item["type"] == "image":
             try:
                 image_data = base64.b64decode(item["content"])
-                st.image(image_data, caption="Generated Visualization", use_column_width=True)
+                st.image(image_data, caption="Generated Visualization", use_container_width=True)
             except Exception as e:
                 st.error(f"Failed to display image: {str(e)}")
 
