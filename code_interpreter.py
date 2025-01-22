@@ -33,7 +33,7 @@ def create_assistant_with_files(files):
                 "When asked about their contents, read the actual data and provide stats or relevant info. "
                 "Format numbers appropriately and give brief interpretations."
             ),
-            model="gpt-4",
+            model="gpt-4o",
             tools=[{"type": "code_interpreter"}],
             tool_resources={"code_interpreter": {"file_ids": file_ids}},
             name="Data Analyst"
