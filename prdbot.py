@@ -34,7 +34,7 @@ def upload_file(file):
     if st.session_state["assistant_id"]:
         with st.spinner("Uploading file..."):
             files = {"file": file}
-            data = {"assistant": st.session_state["assistant_id"]}
+            data = {"assistant": st.session_state["assistant_id"], "file_type": "pdf"}
             response = requests.post(f"{API_BASE_URL}/upload-file", files=files, data=data)
         if response.status_code == 200:
             st.session_state["uploaded_files"].append(file.name)
