@@ -209,7 +209,7 @@ with st.sidebar:
     # File uploader with on_change callback
     uploaded_file = st.file_uploader(
         "📁 Upload a file to assist your chat", 
-        type=["txt", "pdf", "docx", 'html', 'xlsx', 'csv'], 
+        type=["txt", "pdf", "docx", 'html', 'xlsx', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'], 
         key="uploaded_file",
         on_change=handle_file_upload,
         help="Upload a file to provide additional context"
