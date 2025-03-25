@@ -67,6 +67,11 @@ def upload_file(file):
         with st.spinner("Uploading file..."):
             files = {"file": file}
             data = {"assistant": st.session_state["assistant_id"]}
+            
+            # Add session ID if available
+            if st.session_state["session_id"]:
+                data["session"] = st.session_state["session_id"]
+                
             response = requests.post(f"{API_BASE_URL}/upload-file", files=files, data=data)
         if response.status_code == 200:
             st.session_state["uploaded_files"].append(file.name)
