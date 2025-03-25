@@ -90,11 +90,12 @@ def trim_threads(assistant_id, max_age_days=30):
         return False
         
     with st.spinner("Trimming old threads..."):
-        params = {
+        # Use form data for consistency with other POST endpoints
+        data = {
             "assistant_id": assistant_id,
             "max_age_days": max_age_days
         }
-        response = requests.post(f"{API_BASE_URL}/trim-thread", params=params)
+        response = requests.post(f"{API_BASE_URL}/trim-thread", data=data)
         
     if response.status_code == 200:
         result = response.json()
@@ -115,11 +116,12 @@ def cleanup_files(vector_store_id, max_age_days=30):
         return False
         
     with st.spinner("Cleaning up old files..."):
-        params = {
+        # Use form data for consistency with other POST endpoints
+        data = {
             "vector_store_id": vector_store_id,
             "max_age_days": max_age_days
         }
-        response = requests.post(f"{API_BASE_URL}/file-cleanup", params=params)
+        response = requests.post(f"{API_BASE_URL}/file-cleanup", data=data)
         
     if response.status_code == 200:
         return response.json()
