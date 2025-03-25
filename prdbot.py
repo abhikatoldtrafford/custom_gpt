@@ -4,7 +4,8 @@ import json
 import time
 
 # API Base URL
-API_BASE_URL = "https://copilot-updated.azurewebsites.net/" 
+# API_BASE_URL = "https://copilot-updated.azurewebsites.net/" 
+API_BASE_URL = "https://copilotv2.azurewebsites.net/" 
 # Initialize session state
 if "assistant_id" not in st.session_state:
     st.session_state["assistant_id"] = None
