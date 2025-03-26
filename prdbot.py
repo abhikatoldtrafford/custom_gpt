@@ -3,6 +3,7 @@ import requests
 import json
 import time
 from datetime import datetime
+import uuid
 
 # API Base URL
 API_BASE_URL = "https://copilotv2.azurewebsites.net/" 
@@ -15,18 +16,20 @@ if "session_id" not in st.session_state:
 if "vector_store_id" not in st.session_state:
     st.session_state["vector_store_id"] = None
 if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
+    st.session_state["chat_history"] = {}  # Changed to dict to store history per thread
 if "uploaded_files" not in st.session_state:
     st.session_state["uploaded_files"] = []
-if "last_trim" not in st.session_state:
-    st.session_state["last_trim"] = None
 if "show_advanced" not in st.session_state:
     st.session_state["show_advanced"] = False
-if "thread_created_time" not in st.session_state:
-    st.session_state["thread_created_time"] = None
+if "threads" not in st.session_state:
+    st.session_state["threads"] = {}  # Store info about all threads
+if "active_thread" not in st.session_state:
+    st.session_state["active_thread"] = None  # Current active thread ID
+if "thread_name_counter" not in st.session_state:
+    st.session_state["thread_name_counter"] = 1  # Counter for default thread names
 
 # Function to initiate chat with optional context
-def initiate_chat(context=None):
+def initiate_chat(context=None, thread_name=None):
     with st.spinner("Creating assistant..."):
         data = {}
         files = {}
@@ -45,10 +48,26 @@ def initiate_chat(context=None):
     if response.status_code == 200:
         data = response.json()
         st.session_state["assistant_id"] = data["assistant"]
-        st.session_state["session_id"] = data["session"]
+        thread_id = data["session"]
+        st.session_state["session_id"] = thread_id
         st.session_state["vector_store_id"] = data["vector_store"]
-        st.session_state["chat_history"] = []  # Reset chat history on new session
-        st.session_state["thread_created_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Generate thread name if not provided
+        if not thread_name:
+            thread_name = f"Thread {st.session_state['thread_name_counter']}"
+            st.session_state["thread_name_counter"] += 1
+        
+        # Store thread info
+        thread_created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        st.session_state["threads"][thread_id] = {
+            "name": thread_name,
+            "created_at": thread_created_time,
+            "context": context if context else ""
+        }
+        
+        # Initialize chat history for this thread
+        st.session_state["chat_history"][thread_id] = []
+        st.session_state["active_thread"] = thread_id
         
         # If a file was uploaded during initialization, add it to the list
         if uploaded_file and not uploaded_file.name in st.session_state["uploaded_files"]:
@@ -56,7 +75,7 @@ def initiate_chat(context=None):
             
         st.success("Assistant created successfully!")
         if context:
-            st.info(f"Assistant initialized with context: '{context}'")
+            st.info(f"Thread initialized with context: '{context}'")
     else:
         st.error(f"Failed to create assistant. Status code: {response.status_code}")
         try:
@@ -65,7 +84,7 @@ def initiate_chat(context=None):
             st.error("Could not parse error response")
 
 # Function to create a new thread using co-pilot endpoint
-def create_new_thread(context=None):
+def create_new_thread(context=None, thread_name=None):
     if not st.session_state["assistant_id"] or not st.session_state["vector_store_id"]:
         st.error("Cannot create a new thread. No assistant or vector store exists.")
         return False
@@ -84,12 +103,28 @@ def create_new_thread(context=None):
         
     if response.status_code == 200:
         data = response.json()
-        # Update only the session ID, keeping assistant and vector store IDs
-        st.session_state["session_id"] = data["session"]
-        st.session_state["chat_history"] = []  # Reset chat history for new thread
-        st.session_state["thread_created_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Get the new thread ID
+        thread_id = data["session"]
+        st.session_state["session_id"] = thread_id
         
-        st.success("New thread created successfully!")
+        # Generate thread name if not provided
+        if not thread_name:
+            thread_name = f"Thread {st.session_state['thread_name_counter']}"
+            st.session_state["thread_name_counter"] += 1
+            
+        # Store thread info
+        thread_created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        st.session_state["threads"][thread_id] = {
+            "name": thread_name,
+            "created_at": thread_created_time,
+            "context": context if context else ""
+        }
+        
+        # Initialize chat history for this thread
+        st.session_state["chat_history"][thread_id] = []
+        st.session_state["active_thread"] = thread_id
+        
+        st.success(f"New thread '{thread_name}' created successfully!")
         if context:
             st.info(f"Thread initialized with context: '{context}'")
         return True
@@ -100,6 +135,14 @@ def create_new_thread(context=None):
         except:
             st.error("Could not parse error response")
         return False
+
+# Function to switch between threads
+def switch_thread():
+    selected_thread = st.session_state.get("thread_selector")
+    if selected_thread and selected_thread in st.session_state["threads"]:
+        st.session_state["session_id"] = selected_thread
+        st.session_state["active_thread"] = selected_thread
+        st.rerun()  # Force UI refresh to show the selected thread's messages
 
 # Function to upload file
 def upload_file(file):
@@ -148,9 +191,10 @@ def handle_file_upload():
 
 # Function to handle conversation with streaming
 def send_message_streaming(prompt):
-    if st.session_state["session_id"]:
+    thread_id = st.session_state["session_id"]
+    if thread_id:
         params = {
-            "session": st.session_state["session_id"],
+            "session": thread_id,
             "assistant": st.session_state["assistant_id"],
             "prompt": prompt,
         }
@@ -165,9 +209,11 @@ def send_message_streaming(prompt):
                         word = chunk.decode("utf-8")
                         response_text += word
                         assistant_response_placeholder.markdown(response_text)
-                # Append user input and assistant response to chat history
-                st.session_state["chat_history"].append({"role": "user", "content": prompt})
-                st.session_state["chat_history"].append({"role": "assistant", "content": response_text})
+                # Append user input and assistant response to chat history for current thread
+                if thread_id not in st.session_state["chat_history"]:
+                    st.session_state["chat_history"][thread_id] = []
+                st.session_state["chat_history"][thread_id].append({"role": "user", "content": prompt})
+                st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
             else:
                 st.error(f"Failed to get a response. Status code: {response.status_code}")
                 try:
@@ -175,7 +221,7 @@ def send_message_streaming(prompt):
                 except:
                     st.error("Could not parse error response")
     else:
-        st.error("Please create an assistant first.")
+        st.error("Please create an assistant and thread first.")
 
 # Toggle advanced options
 def toggle_advanced():
@@ -183,30 +229,107 @@ def toggle_advanced():
 
 # Clear chat history but maintain session
 def clear_chat_history():
-    st.session_state["chat_history"] = []
-    st.success("Chat history cleared. Session maintained.")
+    thread_id = st.session_state["session_id"]
+    if thread_id and thread_id in st.session_state["chat_history"]:
+        st.session_state["chat_history"][thread_id] = []
+        st.success("Chat history cleared for current thread. Session maintained.")
+    else:
+        st.error("No active thread to clear.")
+
+# Rename current thread
+def rename_thread():
+    thread_id = st.session_state["session_id"]
+    new_name = st.session_state.get("thread_rename_input", "")
+    if thread_id and thread_id in st.session_state["threads"] and new_name.strip():
+        st.session_state["threads"][thread_id]["name"] = new_name
+        st.success(f"Thread renamed to '{new_name}'")
+        # Clear the input field
+        st.session_state["thread_rename_input"] = ""
+        st.rerun()  # Refresh to show the new name
 
 # Streamlit App Layout
 st.title("🛠️ Product Management Bot")
 
-# Sidebar for Assistant Creation and File Upload
+# Sidebar for Assistant Creation, Thread Management, and File Upload
 with st.sidebar:
     st.header("Setup")
     
-    # Context input for assistant creation
-    context_input = st.text_area("💡 Initial Context (Optional)", 
-        help="Provide initial context for the assistant. This context will be available for all conversations.")
+    # Assistant creation section
+    if not st.session_state["assistant_id"]:
+        # Context input for assistant creation
+        context_input = st.text_area("💡 Initial Context (Optional)", 
+            help="Provide initial context for the assistant. This context will be available for the first thread.")
+        
+        # Thread name for the first thread
+        thread_name_input = st.text_input("🏷️ First Thread Name (Optional)", 
+            placeholder="Default: Thread 1",
+            help="Give a name to the first thread for easier identification")
+        
+        # Create assistant button
+        if st.button("🔄 Create Assistant", help="Create a new assistant with optional context"):
+            initiate_chat(
+                context=context_input if context_input else None,
+                thread_name=thread_name_input if thread_name_input else None
+            )
     
-    # Create assistant button
-    if st.button("🔄 Create Assistant", help="Create a new assistant with optional context"):
-        initiate_chat(context=context_input if context_input else None)
+    # Thread management section (only shown if assistant already exists)
+    else:
+        st.subheader("🧵 Thread Management")
+        
+        # Thread selection - show if we have multiple threads
+        if len(st.session_state["threads"]) > 0:
+            # Create a dictionary of thread names to IDs for the selectbox
+            thread_options = {f"{info['name']} ({info['created_at']})": thread_id 
+                              for thread_id, info in st.session_state["threads"].items()}
+            
+            # Get current thread name for default selection
+            current_thread_id = st.session_state["active_thread"]
+            current_thread_name = None
+            if current_thread_id and current_thread_id in st.session_state["threads"]:
+                current_info = st.session_state["threads"][current_thread_id]
+                current_thread_name = f"{current_info['name']} ({current_info['created_at']})"
+            
+            # Thread selector
+            st.selectbox(
+                "Select Thread", 
+                options=list(thread_options.keys()),
+                index=list(thread_options.keys()).index(current_thread_name) if current_thread_name in thread_options else 0,
+                key="thread_selector",
+                on_change=switch_thread
+            )
+            
+            # Display current thread context if available
+            if current_thread_id and current_thread_id in st.session_state["threads"]:
+                thread_context = st.session_state["threads"][current_thread_id].get("context", "")
+                if thread_context:
+                    st.info(f"Current thread context: '{thread_context}'")
+            
+            # Rename current thread
+            st.text_input("Rename Current Thread", key="thread_rename_input")
+            if st.button("✏️ Rename"):
+                rename_thread()
+        
+        # New thread creation section
+        st.divider()
+        st.subheader("🧵 Create New Thread")
+        
+        # Context for new thread
+        new_thread_context = st.text_area("💡 Thread Context", 
+            help="Context specific to this new thread conversation")
+        
+        # Thread name input
+        new_thread_name = st.text_input("🏷️ Thread Name", 
+            placeholder=f"Default: Thread {st.session_state['thread_name_counter']}",
+            help="Give a name to this thread for easier identification")
+        
+        # Create new thread button
+        if st.button("➕ New Thread", help="Create a new thread with the existing assistant"):
+            create_new_thread(
+                context=new_thread_context if new_thread_context else None,
+                thread_name=new_thread_name if new_thread_name else None
+            )
     
-    # Create new thread button (only shown if assistant already exists)
-    if st.session_state["assistant_id"] and st.session_state["vector_store_id"]:
-        if st.button("🧵 New Thread", help="Create a new thread with the existing assistant and vector store"):
-            create_new_thread(context=context_input if context_input else None)
-    
-    # File uploader with on_change callback
+    # File uploader (available for both new and existing assistants)
     uploaded_file = st.file_uploader(
         "📁 Upload a file to assist your chat", 
         type=["txt", "pdf", "docx", 'html', 'xlsx', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'], 
@@ -221,40 +344,43 @@ with st.sidebar:
         for file in st.session_state["uploaded_files"]:
             st.markdown(f"- {file}")
     
-    # Display current thread info if available
-    if st.session_state["thread_created_time"]:
-        st.subheader("🧵 Current Thread")
-        st.info(f"Created: {st.session_state['thread_created_time']}")
-    
     # Advanced options toggle
     st.button("⚙️ Advanced Options", on_click=toggle_advanced,
-        help="Show or hide advanced options for testing thread trimming and file cleanup")
+        help="Show or hide advanced options")
     
     # Advanced options
     if st.session_state["show_advanced"]:
         st.subheader("🧰 Advanced Options")
         
         # Clear chat history option
-        if st.button("🧹 Clear Chat History", help="Clear chat history but maintain session"):
+        if st.button("🧹 Clear Current Thread History", help="Clear chat history but maintain session"):
             clear_chat_history()
         
         # Display current IDs
         st.subheader("🔑 Current IDs")
         st.code(f"Assistant ID: {st.session_state['assistant_id']}")
-        st.code(f"Session ID: {st.session_state['session_id']}")
+        st.code(f"Active Thread ID: {st.session_state['session_id']}")
         st.code(f"Vector Store ID: {st.session_state['vector_store_id']}")
+        st.code(f"Total Threads: {len(st.session_state['threads'])}")
 
 # Chat Interface
 st.subheader("💬 Chat with the Assistant")
 
-# Display info about context if available
-if context_input and st.session_state["session_id"]:
-    st.info("This conversation has context information. Ask questions that might relate to the context!")
+# Get current thread ID and name
+current_thread_id = st.session_state["session_id"]
+current_thread_name = "No active thread"
+if current_thread_id and current_thread_id in st.session_state["threads"]:
+    current_thread_name = st.session_state["threads"][current_thread_id]["name"]
 
-# Display Chat History
-for chat in st.session_state["chat_history"]:
-    with st.chat_message(chat["role"]):
-        st.markdown(chat["content"])
+# Display current thread name
+if current_thread_id:
+    st.markdown(f"**Current Thread: {current_thread_name}**")
+
+# Display Chat History for current thread
+if current_thread_id and current_thread_id in st.session_state["chat_history"]:
+    for chat in st.session_state["chat_history"][current_thread_id]:
+        with st.chat_message(chat["role"]):
+            st.markdown(chat["content"])
 
 # User Input
 user_input = st.chat_input("Type your message here...")
