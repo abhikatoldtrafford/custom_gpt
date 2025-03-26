@@ -3,7 +3,6 @@ import requests
 import json
 import time
 from datetime import datetime
-import uuid
 
 # API Base URL
 API_BASE_URL = "https://copilotv2.azurewebsites.net/" 
@@ -27,6 +26,8 @@ if "active_thread" not in st.session_state:
     st.session_state["active_thread"] = None  # Current active thread ID
 if "thread_name_counter" not in st.session_state:
     st.session_state["thread_name_counter"] = 1  # Counter for default thread names
+if "should_rename_thread" not in st.session_state:
+    st.session_state["should_rename_thread"] = False
 
 # Function to initiate chat with optional context
 def initiate_chat(context=None, thread_name=None):
@@ -142,7 +143,6 @@ def switch_thread():
     if selected_thread and selected_thread in st.session_state["threads"]:
         st.session_state["session_id"] = selected_thread
         st.session_state["active_thread"] = selected_thread
-        st.rerun()  # Force UI refresh to show the selected thread's messages
 
 # Function to upload file
 def upload_file(file):
@@ -236,16 +236,9 @@ def clear_chat_history():
     else:
         st.error("No active thread to clear.")
 
-# Rename current thread
-def rename_thread():
-    thread_id = st.session_state["session_id"]
-    new_name = st.session_state.get("thread_rename_input", "")
-    if thread_id and thread_id in st.session_state["threads"] and new_name.strip():
-        st.session_state["threads"][thread_id]["name"] = new_name
-        st.success(f"Thread renamed to '{new_name}'")
-        # Clear the input field
-        st.session_state["thread_rename_input"] = ""
-        st.rerun()  # Refresh to show the new name
+# Set flag to rename thread when button is clicked
+def trigger_rename_thread():
+    st.session_state["should_rename_thread"] = True
 
 # Streamlit App Layout
 st.title("🛠️ Product Management Bot")
@@ -278,22 +271,19 @@ with st.sidebar:
         
         # Thread selection - show if we have multiple threads
         if len(st.session_state["threads"]) > 0:
-            # Create a dictionary of thread names to IDs for the selectbox
-            thread_options = {f"{info['name']} ({info['created_at']})": thread_id 
-                              for thread_id, info in st.session_state["threads"].items()}
+            thread_options = {}
+            for thread_id, info in st.session_state["threads"].items():
+                thread_options[thread_id] = f"{info['name']} ({info['created_at']})"
             
-            # Get current thread name for default selection
+            # Get current thread ID for default selection
             current_thread_id = st.session_state["active_thread"]
-            current_thread_name = None
-            if current_thread_id and current_thread_id in st.session_state["threads"]:
-                current_info = st.session_state["threads"][current_thread_id]
-                current_thread_name = f"{current_info['name']} ({current_info['created_at']})"
             
             # Thread selector
             st.selectbox(
                 "Select Thread", 
                 options=list(thread_options.keys()),
-                index=list(thread_options.keys()).index(current_thread_name) if current_thread_name in thread_options else 0,
+                format_func=lambda x: thread_options[x],
+                index=list(thread_options.keys()).index(current_thread_id) if current_thread_id in thread_options else 0,
                 key="thread_selector",
                 on_change=switch_thread
             )
@@ -304,10 +294,17 @@ with st.sidebar:
                 if thread_context:
                     st.info(f"Current thread context: '{thread_context}'")
             
-            # Rename current thread
-            st.text_input("Rename Current Thread", key="thread_rename_input")
-            if st.button("✏️ Rename"):
-                rename_thread()
+            # Thread renaming
+            thread_id = st.session_state["active_thread"]
+            if thread_id and thread_id in st.session_state["threads"]:
+                new_name = st.text_input("Rename Current Thread:", 
+                                        value=st.session_state["threads"][thread_id]["name"])
+                
+                if st.button("✏️ Rename Thread"):
+                    if new_name.strip():
+                        st.session_state["threads"][thread_id]["name"] = new_name
+                        st.success(f"Thread renamed to '{new_name}'")
+                        st.rerun()
         
         # New thread creation section
         st.divider()
