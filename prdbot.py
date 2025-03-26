@@ -22,6 +22,8 @@ if "last_trim" not in st.session_state:
     st.session_state["last_trim"] = None
 if "show_advanced" not in st.session_state:
     st.session_state["show_advanced"] = False
+if "thread_created_time" not in st.session_state:
+    st.session_state["thread_created_time"] = None
 
 # Function to initiate chat with optional context
 def initiate_chat(context=None):
@@ -46,6 +48,7 @@ def initiate_chat(context=None):
         st.session_state["session_id"] = data["session"]
         st.session_state["vector_store_id"] = data["vector_store"]
         st.session_state["chat_history"] = []  # Reset chat history on new session
+        st.session_state["thread_created_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # If a file was uploaded during initialization, add it to the list
         if uploaded_file and not uploaded_file.name in st.session_state["uploaded_files"]:
@@ -60,6 +63,43 @@ def initiate_chat(context=None):
             st.error(response.json())
         except:
             st.error("Could not parse error response")
+
+# Function to create a new thread using co-pilot endpoint
+def create_new_thread(context=None):
+    if not st.session_state["assistant_id"] or not st.session_state["vector_store_id"]:
+        st.error("Cannot create a new thread. No assistant or vector store exists.")
+        return False
+        
+    with st.spinner("Creating new thread..."):
+        data = {
+            "assistant": st.session_state["assistant_id"],
+            "vector_store": st.session_state["vector_store_id"]
+        }
+        
+        # Add context if provided
+        if context:
+            data["context"] = context
+            
+        response = requests.post(f"{API_BASE_URL}/co-pilot", data=data)
+        
+    if response.status_code == 200:
+        data = response.json()
+        # Update only the session ID, keeping assistant and vector store IDs
+        st.session_state["session_id"] = data["session"]
+        st.session_state["chat_history"] = []  # Reset chat history for new thread
+        st.session_state["thread_created_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        st.success("New thread created successfully!")
+        if context:
+            st.info(f"Thread initialized with context: '{context}'")
+        return True
+    else:
+        st.error(f"Failed to create new thread. Status code: {response.status_code}")
+        try:
+            st.error(response.json())
+        except:
+            st.error("Could not parse error response")
+        return False
 
 # Function to upload file
 def upload_file(file):
@@ -86,56 +126,6 @@ def upload_file(file):
             return False
     else:
         st.error("Please create an assistant first.")
-        return False
-
-# Function to trim threads
-def trim_threads(assistant_id, max_age_days=30):
-    if not assistant_id:
-        st.error("No assistant ID available. Please create an assistant first.")
-        return False
-        
-    with st.spinner("Trimming old threads..."):
-        # Use form data for consistency with other POST endpoints
-        data = {
-            "assistant_id": assistant_id,
-            "max_age_days": max_age_days
-        }
-        response = requests.post(f"{API_BASE_URL}/trim-thread", data=data)
-        
-    if response.status_code == 200:
-        result = response.json()
-        st.session_state["last_trim"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        return result
-    else:
-        st.error(f"Failed to trim threads. Status code: {response.status_code}")
-        try:
-            st.error(response.json())
-        except:
-            st.error("Could not parse error response")
-        return False
-
-# Function to cleanup files
-def cleanup_files(vector_store_id, max_age_days=30):
-    if not vector_store_id:
-        st.error("No vector store ID available. Please create an assistant with files first.")
-        return False
-        
-    with st.spinner("Cleaning up old files..."):
-        # Use form data for consistency with other POST endpoints
-        data = {
-            "vector_store_id": vector_store_id,
-            "max_age_days": max_age_days
-        }
-        response = requests.post(f"{API_BASE_URL}/file-cleanup", data=data)
-        
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error(f"Failed to clean up files. Status code: {response.status_code}")
-        try:
-            st.error(response.json())
-        except:
-            st.error("Could not parse error response")
         return False
 
 # Callback function for file upload
@@ -211,6 +201,11 @@ with st.sidebar:
     if st.button("🔄 Create Assistant", help="Create a new assistant with optional context"):
         initiate_chat(context=context_input if context_input else None)
     
+    # Create new thread button (only shown if assistant already exists)
+    if st.session_state["assistant_id"] and st.session_state["vector_store_id"]:
+        if st.button("🧵 New Thread", help="Create a new thread with the existing assistant and vector store"):
+            create_new_thread(context=context_input if context_input else None)
+    
     # File uploader with on_change callback
     uploaded_file = st.file_uploader(
         "📁 Upload a file to assist your chat", 
@@ -226,6 +221,11 @@ with st.sidebar:
         for file in st.session_state["uploaded_files"]:
             st.markdown(f"- {file}")
     
+    # Display current thread info if available
+    if st.session_state["thread_created_time"]:
+        st.subheader("🧵 Current Thread")
+        st.info(f"Created: {st.session_state['thread_created_time']}")
+    
     # Advanced options toggle
     st.button("⚙️ Advanced Options", on_click=toggle_advanced,
         help="Show or hide advanced options for testing thread trimming and file cleanup")
@@ -237,30 +237,6 @@ with st.sidebar:
         # Clear chat history option
         if st.button("🧹 Clear Chat History", help="Clear chat history but maintain session"):
             clear_chat_history()
-        
-        # Thread Trimming
-        st.subheader("🧵 Thread Management")
-        trim_age = st.slider("Thread Max Age (Days)", 1, 90, 30, help="Maximum age of threads to keep")
-        
-        if st.button("✂️ Trim Old Threads", help="Summarize and remove old threads"):
-            result = trim_threads(st.session_state["assistant_id"], trim_age)
-            if result:
-                st.success(f"Thread trimming completed!")
-                st.json(result)
-        
-        # Show last trim time if available
-        if st.session_state["last_trim"]:
-            st.info(f"Last trim: {st.session_state['last_trim']}")
-        
-        # File Cleanup
-        st.subheader("🗑️ File Cleanup")
-        file_age = st.slider("File Max Age (Days)", 1, 90, 30, help="Maximum age of files to keep")
-        
-        if st.button("🗑️ Clean Up Old Files", help="Summarize and remove old files"):
-            result = cleanup_files(st.session_state["vector_store_id"], file_age)
-            if result:
-                st.success(f"File cleanup completed!")
-                st.json(result)
         
         # Display current IDs
         st.subheader("🔑 Current IDs")
