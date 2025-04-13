@@ -252,8 +252,8 @@ with st.sidebar:
         # Create assistant button
         if st.button("🔄 Create Assistant", help="Create a new assistant with optional context"):
             initiate_chat(
-                context=context_input if context_input else None,
-                thread_name=thread_name_input if thread_name_input else None
+                context= '',
+                thread_name=None
             )
     
     # Thread management section (only shown if assistant already exists)
