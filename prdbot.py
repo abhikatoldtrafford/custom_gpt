@@ -249,15 +249,6 @@ with st.sidebar:
     
     # Assistant creation section
     if not st.session_state["assistant_id"]:
-        # Context input for assistant creation
-        context_input = st.text_area("💡 Initial Context (Optional)", 
-            help="Provide initial context for the assistant. This context will be available for the first thread.")
-        
-        # Thread name for the first thread
-        thread_name_input = st.text_input("🏷️ First Thread Name (Optional)", 
-            placeholder="Default: Thread 1",
-            help="Give a name to the first thread for easier identification")
-        
         # Create assistant button
         if st.button("🔄 Create Assistant", help="Create a new assistant with optional context"):
             initiate_chat(
