@@ -190,6 +190,7 @@ def handle_file_upload():
         progress_bar.empty()
 
 # Function to handle conversation with streaming
+# Function to handle conversation with streaming
 def send_message_streaming(prompt):
     thread_id = st.session_state["session_id"]
     if thread_id:
@@ -202,24 +203,51 @@ def send_message_streaming(prompt):
         assistant_response_placeholder = st.chat_message("assistant").empty()
         response_text = ""
         with st.spinner("Assistant is typing..."):
-            response = requests.get(f"{API_BASE_URL}/conversation", params=params, stream=True)
-            if response.status_code == 200:
-                for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
-                        word = chunk.decode("utf-8")
-                        response_text += word
-                        assistant_response_placeholder.markdown(response_text)
-                # Append user input and assistant response to chat history for current thread
-                if thread_id not in st.session_state["chat_history"]:
-                    st.session_state["chat_history"][thread_id] = []
-                st.session_state["chat_history"][thread_id].append({"role": "user", "content": prompt})
-                st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
-            else:
-                st.error(f"Failed to get a response. Status code: {response.status_code}")
-                try:
-                    st.error(response.text)
-                except:
-                    st.error("Could not parse error response")
+            try:
+                response = requests.get(f"{API_BASE_URL}/conversation", params=params, stream=True)
+                if response.status_code == 200:
+                    # Parse SSE (Server-Sent Events) stream
+                    for line in response.iter_lines():
+                        if line:
+                            line_str = line.decode("utf-8").strip()
+                            
+                            # Check for [DONE] signal
+                            if line_str == "data: [DONE]":
+                                break
+                            
+                            # Check if line starts with "data: "
+                            if line_str.startswith("data: "):
+                                try:
+                                    # Extract JSON payload
+                                    json_str = line_str[6:]  # Remove "data: " prefix
+                                    chunk_data = json.loads(json_str)
+                                    
+                                    # Extract content from the stream
+                                    if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                                        delta = chunk_data["choices"][0].get("delta", {})
+                                        if "content" in delta:
+                                            content = delta["content"]
+                                            response_text += content
+                                            # Update the UI with the accumulated text
+                                            assistant_response_placeholder.markdown(response_text)
+                                            
+                                except json.JSONDecodeError as e:
+                                    st.error(f"Error parsing JSON: {str(e)}\nLine: {line_str}")
+                                    continue
+                    
+                    # Store conversation in chat history
+                    if thread_id not in st.session_state["chat_history"]:
+                        st.session_state["chat_history"][thread_id] = []
+                    st.session_state["chat_history"][thread_id].append({"role": "user", "content": prompt})
+                    st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
+                else:
+                    st.error(f"Failed to get a response. Status code: {response.status_code}")
+                    try:
+                        st.error(response.text)
+                    except:
+                        st.error("Could not parse error response")
+            except Exception as e:
+                st.error(f"Error in streaming response: {str(e)}")
     else:
         st.error("Please create an assistant and thread first.")
 
