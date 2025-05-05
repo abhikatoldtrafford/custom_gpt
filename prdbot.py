@@ -31,7 +31,7 @@ if "should_rename_thread" not in st.session_state:
 if "last_assistant_message" not in st.session_state:
     st.session_state["last_assistant_message"] = ""  # Store last assistant message for download
 if "next_question_suggestions" not in st.session_state:
-    st.session_state["next_question_suggestions"] = []  # Store multiple next question suggestions
+    st.session_state["next_question_suggestions"] = []  # Store 2 next question suggestions
 if "selected_suggestion" not in st.session_state:
     st.session_state["selected_suggestion"] = None
 
@@ -188,16 +188,16 @@ def handle_file_upload():
         
         progress_bar.empty()
 
-# Function to generate multiple next question suggestions
+# Function to generate next question suggestions
 def generate_next_question_suggestions(user_message, assistant_response):
-    """Generate multiple suggested next questions based on the conversation"""
+    """Generate 2 suggested next questions based on the conversation"""
     try:
-        # Use a simple prompt to generate 3 relevant follow-up questions
+        # Use a simple prompt to generate short, relevant follow-up questions
         prompt = f"""Based on this conversation:
 User: {user_message}
 Assistant: {assistant_response}
 
-Generate a natural follow-up questions, 4-6 words long, that would be relevant to continue this conversation. Just the questions, nothing else."""
+Generate 2 different natural follow-up questions, each in 4-5 words that would be relevant to continue this conversation. Separate them with '|' character. Just the questions, nothing else."""
         
         # Make API call to generate suggestions
         params = {
@@ -210,25 +210,29 @@ Generate a natural follow-up questions, 4-6 words long, that would be relevant t
         
         if response.status_code == 200:
             data = response.json()
-            suggestions_text = data.get("response", "").strip()
+            suggestion_text = data.get("response", "").strip()
+            # Split by | character
+            suggestions = suggestion_text.split('|')
+            # Ensure each suggestion is roughly 4-5 words
+            formatted_suggestions = []
+            for suggestion in suggestions[:2]:  # Take only first 2
+                suggestion = suggestion.strip()
+                words = suggestion.split()
+                if len(words) > 7:
+                    suggestion = " ".join(words[:5]) + "..."
+                if suggestion:
+                    formatted_suggestions.append(suggestion)
             
-            # Parse the suggestions (extract lines that start with numbers)
-            suggestions = []
-            for line in suggestions_text.split('\n'):
-                line = line.strip()
-                # Remove numbering (1., 2., 3.)
-                if line and (line[0].isdigit() or line.startswith('1.') or line.startswith('2.') or line.startswith('3.')):
-                    clean_suggestion = line.split('.', 1)[-1].strip()
-                    if clean_suggestion:
-                        suggestions.append(clean_suggestion)
+            # Ensure we have exactly 2 suggestions
+            while len(formatted_suggestions) < 2:
+                formatted_suggestions.append("Continue this topic")
             
-            # Return at most 3 suggestions
-            return suggestions[:3]
+            return formatted_suggestions[:2]
         else:
-            return []
+            return ["Continue this topic", "Ask another question"]
     except Exception as e:
         st.error(f"Error generating next questions: {e}")
-        return []
+        return ["Continue this topic", "Ask another question"]
 
 # Function to handle conversation with streaming
 def send_message_streaming(prompt):
@@ -443,21 +447,32 @@ if st.session_state["last_assistant_message"]:
             help="Download last assistant response"
         )
 
-# Display next question suggestions using your approach
+# Display next question suggestions
 if st.session_state["next_question_suggestions"]:
-    with st.chat_message("user"):
-        st.write("Choose an option:")
-        for suggestion in st.session_state["next_question_suggestions"]:
-            if st.button(suggestion, key=suggestion):
-                # Use a button for each suggestion
-                st.session_state.selected_suggestion = suggestion
-                st.rerun()
+    st.markdown("### 💡 Choose an option:")
+    
+    # Use columns to display suggestions side by side
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button(st.session_state["next_question_suggestions"][0], 
+                    key="suggestion_1",
+                    use_container_width=True):
+            st.session_state.selected_suggestion = st.session_state["next_question_suggestions"][0]
+            st.rerun()
+    
+    with col2:
+        if st.button(st.session_state["next_question_suggestions"][1], 
+                    key="suggestion_2",
+                    use_container_width=True):
+            st.session_state.selected_suggestion = st.session_state["next_question_suggestions"][1]
+            st.rerun()
 
-# Get user input
+# User Input
 user_input = st.chat_input(placeholder="Or type your own message...")
 
-# Use the selected suggestion if available
-if st.session_state.selected_suggestion and not user_input:
+# Handle suggestion click
+if st.session_state.selected_suggestion:
     user_input = st.session_state.selected_suggestion
     st.session_state.selected_suggestion = None
 
@@ -465,8 +480,6 @@ if user_input:
     # Display user message
     with st.chat_message("user"):
         st.markdown(user_input)
-    # Clear suggestions when sending a message
-    st.session_state["next_question_suggestions"] = []
     # Process and display assistant response with streaming
     send_message_streaming(user_input)
 
