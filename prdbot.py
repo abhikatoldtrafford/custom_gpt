@@ -289,7 +289,7 @@ def send_message_streaming(prompt):
                     st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
                     
                     # Generate next question suggestions
-                    with st.spinner("Thinking of next questions..."):
+                    with st.spinner("Getting Ready..."):
                         next_suggestions = generate_next_question_suggestions(prompt, response_text)
                         st.session_state["next_question_suggestions"] = next_suggestions
                     
@@ -449,7 +449,6 @@ if st.session_state["last_assistant_message"]:
 
 # Display next question suggestions
 if st.session_state["next_question_suggestions"]:
-    st.markdown("### 💡 Choose an option:")
     
     # Use columns to display suggestions side by side
     col1, col2 = st.columns(2)
