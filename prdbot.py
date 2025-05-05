@@ -195,7 +195,9 @@ def generate_next_question_suggestion(user_message, assistant_response):
 User: {user_message}
 Assistant: {assistant_response}
 
-Generate a natural follow-up question in 4-5 words that would be relevant to continue this conversation. Just the question, nothing else."""
+Generate a natural follow-up question in 4-5 words that would be relevant to continue this conversation. 
+Remember, follow up question is for the user to ask the assistant.
+Just return the question, nothing else."""
         
         # Make API call to generate suggestion
         params = {
@@ -204,7 +206,7 @@ Generate a natural follow-up question in 4-5 words that would be relevant to con
             "prompt": prompt,
         }
         
-        response = requests.get(f"{API_BASE_URL}/chat", params=params)
+        response = requests.get(f"{API_BASE_URL}/chat")
         
         if response.status_code == 200:
             data = response.json()
