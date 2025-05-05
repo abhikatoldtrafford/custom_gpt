@@ -351,15 +351,6 @@ with st.sidebar:
             
             # Thread renaming
             thread_id = st.session_state["active_thread"]
-            if thread_id and thread_id in st.session_state["threads"]:
-                new_name = st.text_input("Rename Current Thread:", 
-                                        value=st.session_state["threads"][thread_id]["name"])
-                
-                if st.button("✏️ Rename Thread"):
-                    if new_name.strip():
-                        st.session_state["threads"][thread_id]["name"] = new_name
-                        st.success(f"Thread renamed to '{new_name}'")
-                        st.rerun()
         
         # New thread creation section - simplified
         st.divider()
