@@ -28,6 +28,10 @@ if "thread_name_counter" not in st.session_state:
     st.session_state["thread_name_counter"] = 1  # Counter for default thread names
 if "should_rename_thread" not in st.session_state:
     st.session_state["should_rename_thread"] = False
+if "last_assistant_message" not in st.session_state:
+    st.session_state["last_assistant_message"] = ""  # Store last assistant message for download
+if "next_question_suggestion" not in st.session_state:
+    st.session_state["next_question_suggestion"] = ""  # Store next question suggestion
 
 # Function to initiate chat with optional context
 def initiate_chat(context=None, thread_name=None):
@@ -85,7 +89,7 @@ def initiate_chat(context=None, thread_name=None):
             st.error("Could not parse error response")
 
 # Function to create a new thread using co-pilot endpoint
-def create_new_thread(context=None, thread_name=None):
+def create_new_thread(thread_name=None):
     if not st.session_state["assistant_id"] or not st.session_state["vector_store_id"]:
         st.error("Cannot create a new thread. No assistant or vector store exists.")
         return False
@@ -96,10 +100,6 @@ def create_new_thread(context=None, thread_name=None):
             "vector_store": st.session_state["vector_store_id"]
         }
         
-        # Add context if provided
-        if context:
-            data["context"] = context
-            
         response = requests.post(f"{API_BASE_URL}/co-pilot", data=data)
         
     if response.status_code == 200:
@@ -110,7 +110,7 @@ def create_new_thread(context=None, thread_name=None):
         
         # Generate thread name if not provided
         if not thread_name:
-            thread_name = f"Thread {st.session_state['thread_name_counter']}"
+            thread_name = f"Session {st.session_state['thread_name_counter']}"
             st.session_state["thread_name_counter"] += 1
             
         # Store thread info
@@ -118,7 +118,7 @@ def create_new_thread(context=None, thread_name=None):
         st.session_state["threads"][thread_id] = {
             "name": thread_name,
             "created_at": thread_created_time,
-            "context": context if context else ""
+            "context": ""  # No context for new threads
         }
         
         # Initialize chat history for this thread
@@ -126,8 +126,6 @@ def create_new_thread(context=None, thread_name=None):
         st.session_state["active_thread"] = thread_id
         
         st.success(f"New thread '{thread_name}' created successfully!")
-        if context:
-            st.info(f"Thread initialized with context: '{context}'")
         return True
     else:
         st.error(f"Failed to create new thread. Status code: {response.status_code}")
@@ -189,7 +187,40 @@ def handle_file_upload():
         
         progress_bar.empty()
 
-# Function to handle conversation with streaming
+# Function to generate next question suggestion
+def generate_next_question_suggestion(user_message, assistant_response):
+    """Generate a suggested next question based on the conversation"""
+    try:
+        # Use a simple prompt to generate a short, relevant follow-up question
+        prompt = f"""Based on this conversation:
+User: {user_message}
+Assistant: {assistant_response}
+
+Generate a natural follow-up question in 4-5 words that would be relevant to continue this conversation. Just the question, nothing else."""
+        
+        # Make API call to generate suggestion
+        params = {
+            "session": st.session_state["session_id"],
+            "assistant": st.session_state["assistant_id"],
+            "prompt": prompt,
+        }
+        
+        response = requests.get(f"{API_BASE_URL}/chat", params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            suggestion = data.get("response", "").strip()
+            # Ensure it's roughly 4-5 words
+            words = suggestion.split()
+            if len(words) > 7:
+                suggestion = " ".join(words[:5]) + "..."
+            return suggestion
+        else:
+            return ""
+    except Exception as e:
+        st.error(f"Error generating next question: {e}")
+        return ""
+
 # Function to handle conversation with streaming
 def send_message_streaming(prompt):
     thread_id = st.session_state["session_id"]
@@ -203,51 +234,31 @@ def send_message_streaming(prompt):
         assistant_response_placeholder = st.chat_message("assistant").empty()
         response_text = ""
         with st.spinner("Assistant is typing..."):
-            try:
-                response = requests.get(f"{API_BASE_URL}/conversation", params=params, stream=True)
-                if response.status_code == 200:
-                    # Parse SSE (Server-Sent Events) stream
-                    for line in response.iter_lines():
-                        if line:
-                            line_str = line.decode("utf-8").strip()
-                            
-                            # Check for [DONE] signal
-                            if line_str == "data: [DONE]":
-                                break
-                            
-                            # Check if line starts with "data: "
-                            if line_str.startswith("data: "):
-                                try:
-                                    # Extract JSON payload
-                                    json_str = line_str[6:]  # Remove "data: " prefix
-                                    chunk_data = json.loads(json_str)
-                                    
-                                    # Extract content from the stream
-                                    if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
-                                        delta = chunk_data["choices"][0].get("delta", {})
-                                        if "content" in delta:
-                                            content = delta["content"]
-                                            response_text += content
-                                            # Update the UI with the accumulated text
-                                            assistant_response_placeholder.markdown(response_text)
-                                            
-                                except json.JSONDecodeError as e:
-                                    st.error(f"Error parsing JSON: {str(e)}\nLine: {line_str}")
-                                    continue
-                    
-                    # Store conversation in chat history
-                    if thread_id not in st.session_state["chat_history"]:
-                        st.session_state["chat_history"][thread_id] = []
-                    st.session_state["chat_history"][thread_id].append({"role": "user", "content": prompt})
-                    st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
-                else:
-                    st.error(f"Failed to get a response. Status code: {response.status_code}")
-                    try:
-                        st.error(response.text)
-                    except:
-                        st.error("Could not parse error response")
-            except Exception as e:
-                st.error(f"Error in streaming response: {str(e)}")
+            response = requests.get(f"{API_BASE_URL}/conversation", params=params, stream=True)
+            if response.status_code == 200:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        word = chunk.decode("utf-8")
+                        response_text += word
+                        assistant_response_placeholder.markdown(response_text)
+                # Store the last assistant message
+                st.session_state["last_assistant_message"] = response_text
+                # Append user input and assistant response to chat history for current thread
+                if thread_id not in st.session_state["chat_history"]:
+                    st.session_state["chat_history"][thread_id] = []
+                st.session_state["chat_history"][thread_id].append({"role": "user", "content": prompt})
+                st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
+                
+                # Generate next question suggestion
+                with st.spinner("Thinking of next question..."):
+                    next_suggestion = generate_next_question_suggestion(prompt, response_text)
+                    st.session_state["next_question_suggestion"] = next_suggestion
+            else:
+                st.error(f"Failed to get a response. Status code: {response.status_code}")
+                try:
+                    st.error(response.text)
+                except:
+                    st.error("Could not parse error response")
     else:
         st.error("Please create an assistant and thread first.")
 
@@ -277,11 +288,20 @@ with st.sidebar:
     
     # Assistant creation section
     if not st.session_state["assistant_id"]:
+        # Context input for assistant creation
+        context_input = st.text_area("💡 Initial Context (Optional)", 
+            help="Provide initial context for the assistant. This context will be available for the first thread.")
+        
+        # Thread name for the first thread
+        thread_name_input = st.text_input("🏷️ First Thread Name (Optional)", 
+            placeholder="Default: Thread 1",
+            help="Give a name to the first thread for easier identification")
+        
         # Create assistant button
         if st.button("🔄 Create Assistant", help="Create a new assistant with optional context"):
             initiate_chat(
-                context= '',
-                thread_name=None
+                context=context_input if context_input else None,
+                thread_name=thread_name_input if thread_name_input else None
             )
     
     # Thread management section (only shown if assistant already exists)
@@ -307,12 +327,6 @@ with st.sidebar:
                 on_change=switch_thread
             )
             
-            # Display current thread context if available
-            if current_thread_id and current_thread_id in st.session_state["threads"]:
-                thread_context = st.session_state["threads"][current_thread_id].get("context", "")
-                if thread_context:
-                    st.info(f"Current thread context: '{thread_context}'")
-            
             # Thread renaming
             thread_id = st.session_state["active_thread"]
             if thread_id and thread_id in st.session_state["threads"]:
@@ -329,21 +343,14 @@ with st.sidebar:
         st.divider()
         st.subheader("🧵 Create New Thread")
         
-        # Context for new thread
-        new_thread_context = st.text_area("💡 Thread Context", 
-            help="Context specific to this new thread conversation")
-        
         # Thread name input
         new_thread_name = st.text_input("🏷️ Thread Name", 
-            placeholder=f"Default: Thread {st.session_state['thread_name_counter']}",
+            placeholder=f"Default: Session {st.session_state['thread_name_counter']}",
             help="Give a name to this thread for easier identification")
         
         # Create new thread button
         if st.button("➕ New Thread", help="Create a new thread with the existing assistant"):
-            create_new_thread(
-                context=new_thread_context if new_thread_context else None,
-                thread_name=new_thread_name if new_thread_name else None
-            )
+            create_new_thread(thread_name=new_thread_name if new_thread_name else None)
     
     # File uploader (available for both new and existing assistants)
     uploaded_file = st.file_uploader(
@@ -398,8 +405,44 @@ if current_thread_id and current_thread_id in st.session_state["chat_history"]:
         with st.chat_message(chat["role"]):
             st.markdown(chat["content"])
 
+# Download button for last assistant message
+if st.session_state["last_assistant_message"]:
+    col1, col2 = st.columns([0.9, 0.1])
+    with col2:
+        st.download_button(
+            label="⬇️",
+            data=st.session_state["last_assistant_message"],
+            file_name=f"assistant_response_{current_thread_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain",
+            help="Download last assistant response"
+        )
+
+# Display next question suggestion
+if st.session_state["next_question_suggestion"]:
+    st.markdown("### 💡 Suggested next question:")
+    
+    # Create a clickable pill-like button for the suggestion
+    col1, col2 = st.columns([0.85, 0.15])
+    with col1:
+        if st.button(f"💬 {st.session_state['next_question_suggestion']}", 
+                    key="suggestion_button",
+                    help="Click to use this suggestion"):
+            # Set the suggestion as the next input
+            st.session_state.suggestion_clicked = True
+            st.rerun()
+    with col2:
+        if st.button("❌", key="dismiss_suggestion", help="Dismiss suggestion"):
+            st.session_state["next_question_suggestion"] = ""
+            st.rerun()
+
 # User Input
 user_input = st.chat_input("Type your message here...")
+
+# Handle suggestion click
+if hasattr(st.session_state, 'suggestion_clicked') and st.session_state.suggestion_clicked:
+    user_input = st.session_state["next_question_suggestion"]
+    st.session_state.suggestion_clicked = False
+    st.session_state["next_question_suggestion"] = ""
 
 if user_input:
     # Display user message
