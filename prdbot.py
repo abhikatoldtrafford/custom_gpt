@@ -89,21 +89,17 @@ def initiate_chat(context=None, thread_name=None):
             st.error("Could not parse error response")
 
 # Function to create a new thread using co-pilot endpoint
-def create_new_thread(context=None, thread_name=None):
+def create_new_thread():
     if not st.session_state["assistant_id"] or not st.session_state["vector_store_id"]:
         st.error("Cannot create a new thread. No assistant or vector store exists.")
         return False
         
-    with st.spinner("Creating new thread..."):
+    with st.spinner("Creating new session..."):
         data = {
             "assistant": st.session_state["assistant_id"],
             "vector_store": st.session_state["vector_store_id"]
         }
         
-        # Add context if provided
-        if context:
-            data["context"] = context
-            
         response = requests.post(f"{API_BASE_URL}/co-pilot", data=data)
         
     if response.status_code == 200:
@@ -112,29 +108,26 @@ def create_new_thread(context=None, thread_name=None):
         thread_id = data["session"]
         st.session_state["session_id"] = thread_id
         
-        # Generate thread name if not provided
-        if not thread_name:
-            thread_name = f"Thread {st.session_state['thread_name_counter']}"
-            st.session_state["thread_name_counter"] += 1
+        # Generate thread name automatically
+        thread_name = f"Session {st.session_state['thread_name_counter']}"
+        st.session_state["thread_name_counter"] += 1
             
         # Store thread info
         thread_created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         st.session_state["threads"][thread_id] = {
             "name": thread_name,
             "created_at": thread_created_time,
-            "context": context if context else ""
+            "context": ""  # No context for new sessions
         }
         
         # Initialize chat history for this thread
         st.session_state["chat_history"][thread_id] = []
         st.session_state["active_thread"] = thread_id
         
-        st.success(f"New thread '{thread_name}' created successfully!")
-        if context:
-            st.info(f"Thread initialized with context: '{context}'")
+        st.success(f"New session '{thread_name}' created successfully!")
         return True
     else:
-        st.error(f"Failed to create new thread. Status code: {response.status_code}")
+        st.error(f"Failed to create new session. Status code: {response.status_code}")
         try:
             st.error(response.json())
         except:
@@ -285,6 +278,9 @@ def send_message_streaming(prompt):
                     with st.spinner("Thinking of next question..."):
                         next_suggestion = generate_next_question_suggestion(prompt, response_text)
                         st.session_state["next_question_suggestion"] = next_suggestion
+                    
+                    # Force rerun to show download and suggestion immediately
+                    st.rerun()
                 else:
                     st.error(f"Failed to get a response. Status code: {response.status_code}")
                     try:
@@ -352,12 +348,6 @@ with st.sidebar:
                 on_change=switch_thread
             )
             
-            # Display current thread context if available
-            if current_thread_id and current_thread_id in st.session_state["threads"]:
-                thread_context = st.session_state["threads"][current_thread_id].get("context", "")
-                if thread_context:
-                    st.info(f"Current thread context: '{thread_context}'")
-            
             # Thread renaming
             thread_id = st.session_state["active_thread"]
             if thread_id and thread_id in st.session_state["threads"]:
@@ -370,25 +360,13 @@ with st.sidebar:
                         st.success(f"Thread renamed to '{new_name}'")
                         st.rerun()
         
-        # New thread creation section
+        # New thread creation section - simplified
         st.divider()
         st.subheader("🧵 Create New Thread")
         
-        # Context for new thread
-        new_thread_context = st.text_area("💡 Thread Context", 
-            help="Context specific to this new thread conversation")
-        
-        # Thread name input
-        new_thread_name = st.text_input("🏷️ Thread Name", 
-            placeholder=f"Default: Thread {st.session_state['thread_name_counter']}",
-            help="Give a name to this thread for easier identification")
-        
-        # Create new thread button
-        if st.button("➕ New Thread", help="Create a new thread with the existing assistant"):
-            create_new_thread(
-                context=new_thread_context if new_thread_context else None,
-                thread_name=new_thread_name if new_thread_name else None
-            )
+        # Create new session button
+        if st.button("➕ New Session", help="Create a new session"):
+            create_new_thread()
     
     # File uploader (available for both new and existing assistants)
     uploaded_file = st.file_uploader(
