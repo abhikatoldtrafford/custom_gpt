@@ -277,9 +277,8 @@ def send_message_streaming(prompt):
                     st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
                     
                     # Generate next question suggestion
-                    with st.spinner("Thinking of next question..."):
-                        next_suggestion = generate_next_question_suggestion(prompt, response_text)
-                        st.session_state["next_question_suggestion"] = next_suggestion
+                    next_suggestion = generate_next_question_suggestion(prompt, response_text)
+                    st.session_state["next_question_suggestion"] = next_suggestion
                     
                     # Force rerun to show download and suggestion immediately
                     st.rerun()
@@ -437,8 +436,6 @@ if st.session_state["last_assistant_message"]:
 
 # Display next question suggestion
 if st.session_state["next_question_suggestion"]:
-    st.markdown("### 💡 Suggested next question:")
-    
     # Create a clickable pill-like button for the suggestion
     col1, col2 = st.columns([0.85, 0.15])
     with col1:
