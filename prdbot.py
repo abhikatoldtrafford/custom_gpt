@@ -289,9 +289,8 @@ def send_message_streaming(prompt):
                     st.session_state["chat_history"][thread_id].append({"role": "assistant", "content": response_text})
                     
                     # Generate next question suggestions
-                    with st.spinner("Getting Ready..."):
-                        next_suggestions = generate_next_question_suggestions(prompt, response_text)
-                        st.session_state["next_question_suggestions"] = next_suggestions
+                    next_suggestions = generate_next_question_suggestions(prompt, response_text)
+                    st.session_state["next_question_suggestions"] = next_suggestions
                     
                     # Force rerun to show download and suggestions immediately
                     st.rerun()
