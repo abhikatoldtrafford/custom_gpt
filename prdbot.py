@@ -197,7 +197,7 @@ def generate_next_question_suggestions(user_message, assistant_response):
 User: {user_message}
 Assistant: {assistant_response}
 
-Generate 3 natural follow-up questions, each 4-6 words long, that would be relevant to continue this conversation. Format as a numbered list (1. 2. 3.). Just the questions, nothing else."""
+Generate a natural follow-up questions, 4-6 words long, that would be relevant to continue this conversation. Just the questions, nothing else."""
         
         # Make API call to generate suggestions
         params = {
